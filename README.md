@@ -3,8 +3,8 @@
 
 -  框架与工具：React 18、Vite、TypeScript
 # 图像处理：
--Canvas 
--@upscalerjs/esrgan-medium（TensorFlow.js + Upscaler.js ESRGAN）
--Potrace
+#Canvas 
+#@upscalerjs/esrgan-medium（TensorFlow.js + Upscaler.js ESRGAN）
+#Potrace
 
 
