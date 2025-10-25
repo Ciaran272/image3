@@ -1,47 +1,42 @@
 .header {
-  background: var(--bg-secondary);
-  border-bottom: 1px solid var(--border-color);
-  box-shadow: var(--shadow-sm);
   position: sticky;
   top: 0;
   z-index: 100;
-  backdrop-filter: blur(10px);
-  background: rgba(255, 255, 255, 0.95);
+  backdrop-filter: blur(16px);
+  background: linear-gradient(135deg, rgba(255,255,255,0.92), rgba(247,245,255,0.85));
+  border-bottom: 1px solid rgba(24,32,56,0.08);
+  box-shadow: 0 16px 32px rgba(23,24,34,0.12);
 }
 
 .header-content {
-  max-width: 1400px;
+  max-width: 1200px;
   margin: 0 auto;
   padding: 1.5rem 2rem;
   display: flex;
-  justify-content: center;  /* 居中对齐 */
+  justify-content: center;
   align-items: center;
   gap: 2rem;
 }
 
 .logo {
   display: flex;
+  flex-direction: column;
+  justify-content: center;
   align-items: center;
-  gap: 1rem;
-}
-
-.logo svg {
-  flex-shrink: 0;
+  text-align: center;
 }
 
 .logo-text h1 {
   font-size: 1.5rem;
   color: var(--text-primary);
   font-weight: 600;
-  margin: 0;
-  line-height: 1.2;
+  letter-spacing: 0.04em;
 }
 
 .logo-text p {
   font-size: 0.85rem;
   color: var(--text-secondary);
-  margin: 0;
-  line-height: 1.2;
+  margin-top: 0.35rem;
 }
 
 .header-info {

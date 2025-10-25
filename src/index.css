@@ -1,3 +1,5 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
 * {
   margin: 0;
   padding: 0;
@@ -5,40 +7,28 @@
 }
 
 :root {
-  /* 夏日主题色 - 蓝色系 */
-  --primary-blue: #4A90E2;
-  --light-blue: #68A8F0;
-  --dark-blue: #2E5C8A;
-  
-  /* 低饱和度渐变色 */
-  --gradient-1: linear-gradient(135deg, #E8F4F8 0%, #D4E8F5 100%);
-  --gradient-2: linear-gradient(135deg, #B8D8EB 0%, #A5CBE3 100%);
-  --gradient-3: linear-gradient(135deg, #4A90E2 0%, #5BA3F5 100%);
-  
-  /* 辅助色 */
-  --accent-cyan: #7DD3C0;
-  --accent-peach: #FFB997;
-  --success-green: #6BCF94;
-  --error-red: #F66D7E;
-  --warning-yellow: #FFD166;
-  
-  /* 中性色 */
-  --bg-primary: #F8FCFF;
-  --bg-secondary: #FFFFFF;
-  --text-primary: #2C3E50;
-  --text-secondary: #6B7C93;
-  --border-color: #D1E3F0;
-  
-  /* 阴影 */
-  --shadow-sm: 0 2px 8px rgba(74, 144, 226, 0.08);
-  --shadow-md: 0 4px 16px rgba(74, 144, 226, 0.12);
-  --shadow-lg: 0 8px 32px rgba(74, 144, 226, 0.16);
-  
-  /* 字体 */
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Oxygen',
-    'Ubuntu', 'Cantarell', 'Fira Sans', 'Droid Sans', 'Helvetica Neue',
-    'Microsoft YaHei', sans-serif;
-  
+  --primary-ink: #17181d;
+  --accent-charcoal: #20222b;
+  --accent-cream: #fdf5e6;
+  --accent-lilac: #e9e5ff;
+  --accent-sand: #f8ead1;
+  --gradient-1: linear-gradient(180deg, #fdf8f1 0%, #f2f0ff 55%, #f0f2ff 100%);
+  --gradient-2: linear-gradient(145deg, rgba(255, 255, 255, 0.95), rgba(252, 248, 238, 0.9));
+  --gradient-3: linear-gradient(135deg, #1b1f2a 0%, #2f3442 100%);
+  --bg-primary: #fdf8f1;
+  --bg-secondary: rgba(255, 255, 255, 0.92);
+  --surface-elevated: rgba(255, 255, 255, 0.88);
+  --text-primary: #17181d;
+  --text-secondary: #6c7086;
+  --border-color: rgba(24, 32, 56, 0.12);
+  --success-green: #49c594;
+  --error-red: #f76b6b;
+  --warning-yellow: #ffbf59;
+  --shadow-sm: 0 12px 28px rgba(23, 24, 34, 0.08);
+  --shadow-md: 0 18px 45px rgba(23, 24, 34, 0.12);
+  --shadow-lg: 0 32px 70px rgba(23, 24, 34, 0.18);
+
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', 'Microsoft YaHei', sans-serif;
   font-synthesis: none;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
@@ -50,6 +40,10 @@ body {
   color: var(--text-primary);
   line-height: 1.6;
   min-height: 100vh;
+}
+
+body, body * {
+  user-select: none;
 }
 
 #root {
@@ -145,11 +139,115 @@ input:focus, select:focus, textarea:focus {
   }
 }
 
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.92);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes popIn {
+  0% {
+    opacity: 0;
+    transform: scale(0.75);
+  }
+  50% {
+    transform: scale(1.08);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes glow {
+  0%, 100% {
+    box-shadow: 0 0 25px rgba(71, 108, 255, 0.35);
+  }
+  50% {
+    box-shadow: 0 0 50px rgba(71, 108, 255, 0.65);
+  }
+}
+
+@keyframes ripple {
+  0% {
+    transform: scale(0);
+    opacity: 0.6;
+  }
+  100% {
+    transform: scale(2.5);
+    opacity: 0;
+  }
+}
+
+@keyframes checkPop {
+  0% {
+    transform: scale(0) rotate(45deg);
+    opacity: 0;
+  }
+  50% {
+    transform: scale(1.25) rotate(45deg);
+  }
+  100% {
+    transform: scale(1) rotate(45deg);
+    opacity: 1;
+  }
+}
+
+@keyframes celebration {
+  0%, 100% {
+    transform: scale(1);
+  }
+  25% {
+    transform: scale(1.06) rotate(1.5deg);
+  }
+  50% {
+    transform: scale(1.12) rotate(-1.5deg);
+  }
+  75% {
+    transform: scale(1.06) rotate(1deg);
+  }
+}
+
+@keyframes numberRoll {
+  from {
+    transform: translateY(-25px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+@keyframes breathe {
+  0%, 100% {
+    transform: scale(1);
+    opacity: 0.95;
+  }
+  50% {
+    transform: scale(1.02);
+    opacity: 1;
+  }
+}
+
 .fade-in {
   animation: fadeIn 0.5s ease;
 }
 
 .slide-in {
   animation: slideIn 0.5s ease;
+}
+
+.scale-in {
+  animation: scaleIn 0.45s cubic-bezier(0.34, 1.56, 0.64, 1);
+}
+
+.pop-in {
+  animation: popIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
 }
 

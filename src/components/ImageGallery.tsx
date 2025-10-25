@@ -1,16 +1,26 @@
+import * as React from 'react'
+import { TransitionGroup } from 'react-transition-group'
 import { ImageItem } from '../types'
 import './ImageGallery.css'
 
 interface ImageGalleryProps {
   images: ImageItem[]
   onRemoveImage: (id: string) => void
+  reminderContent?: React.ReactNode
 }
 
-export default function ImageGallery({ images, onRemoveImage }: ImageGalleryProps) {
+export default function ImageGallery({ images, onRemoveImage, reminderContent }: ImageGalleryProps) {
   return (
     <div className="image-gallery">
       <div className="gallery-header">
-        <h3>📁 图片列表</h3>
+        <div className="gallery-title-block">
+          <h3>🎞️ 图片列表</h3>
+          {Array.isArray(reminderContent) ? (
+            <TransitionGroup className="inline-reminders">
+              {reminderContent}
+            </TransitionGroup>
+          ) : reminderContent}
+        </div>
         <span className="image-count">共 {images.length} 张</span>
       </div>
 

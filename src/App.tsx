@@ -6,6 +6,7 @@ import ProcessingPanel from './components/ProcessingPanel'
 import ResultsView from './components/ResultsView'
 import { ImageItem, ProcessingStats, ProcessOptions } from './types'
 import { ProcessingQueue, QueueCallbacks } from './utils/processingQueue'
+import { resetAIBackend } from './utils/aiUpscale'
 import './App.css'
 
 type AppView = 'upload' | 'processing' | 'results';
@@ -22,16 +23,52 @@ function App() {
   
   const queueRef = useRef<ProcessingQueue | null>(null)
 
+  const handleResetApp = useCallback(async () => {
+    // 停止队列
+    if (queueRef.current) {
+      try {
+        queueRef.current.stop?.()
+      } catch (err) {
+        console.warn('停止处理队列失败', err)
+      }
+    }
+
+    // 清除所有临时 URL
+    images.forEach(img => {
+      URL.revokeObjectURL(img.originalUrl)
+      if (img.result?.svgUrl) URL.revokeObjectURL(img.result.svgUrl)
+      if (img.result?.pngUrl) URL.revokeObjectURL(img.result.pngUrl)
+    })
+
+    // 清空状态
+    setImages([])
+    setStats({
+      total: 0,
+      completed: 0,
+      failed: 0,
+      currentIndex: 0
+    })
+    setView('upload')
+
+    try {
+      await resetAIBackend()
+      console.log('AI 后端已重置')
+    } catch (err) {
+      console.warn('重置 AI 后端失败', err)
+    }
+
+    if (typeof window !== 'undefined') {
+      window.location.href = window.location.href.replace(/#.*$/, '')
+    }
+  }, [images])
+
   const handleFilesSelected = useCallback((files: File[]) => {
     const defaultOptions: ProcessOptions = {
-      // 图片类型
-      imageType: 'auto',  // 默认自动识别
-      
       // 基础设置
       upscaleFactor: 2,
-      denoiseLevel: 'medium',
+      denoiseLevel: 'none',
       outputFormat: 'both',
-      dpi: 300,
+      dpi: 'original',
       
       // 高级模式（默认只启用基础增强）
       enableBasicEnhancement: true,   // 基础功能默认开启
@@ -76,6 +113,7 @@ function App() {
   }, [])
 
   const handleStartProcessing = useCallback(() => {
+    if (images.length === 0) return
     setView('processing')
     setStats({
       total: images.length,
@@ -110,15 +148,25 @@ function App() {
         }))
       },
       
-      onImageError: (id, error) => {
+      onImageError: (id, error, meta) => {
         setImages(prev => prev.map(img => 
           img.id === id ? { ...img, status: 'failed' as const, error } : img
         ))
         setStats(prev => ({
           ...prev,
           failed: prev.failed + 1,
-          currentIndex: prev.currentIndex + 1
+          currentIndex: Math.min(prev.currentIndex + 1, images.length)
         }))
+
+        if (meta?.userAborted) {
+          if (typeof window !== 'undefined') {
+            window.alert('处理已停止：用户取消了 CPU 模式放大。')
+          }
+        } else if (!meta?.skip) {
+          if (typeof window !== 'undefined') {
+            window.alert(`处理失败：${error}`)
+          }
+        }
       },
       
       onQueueComplete: () => {
@@ -127,6 +175,13 @@ function App() {
           console.log('正在跳转到结果页面...')
           setView('results')
         }, 1000)
+      },
+
+      onQueueAborted: () => {
+        console.log('队列被用户中止')
+        setTimeout(() => {
+          setView('upload')
+        }, 300)
       }
     }
     
@@ -138,15 +193,8 @@ function App() {
   }, [images])
 
   const handleBackToUpload = useCallback(() => {
-    // 清理所有 URL
-    images.forEach(img => {
-      URL.revokeObjectURL(img.originalUrl)
-      if (img.result?.svgUrl) URL.revokeObjectURL(img.result.svgUrl)
-      if (img.result?.pngUrl) URL.revokeObjectURL(img.result.pngUrl)
-    })
-    setImages([])
-    setView('upload')
-  }, [images])
+    handleResetApp()
+  }, [handleResetApp])
 
   const handleViewResults = useCallback(() => {
     setView('results')
@@ -158,7 +206,7 @@ function App() {
 
   return (
     <div className="app">
-      <Header />
+      {view === 'upload' && images.length === 0 && <Header />}
       
       <main className="main-content">
         {view === 'upload' && (
@@ -195,7 +243,11 @@ function App() {
       </main>
 
       <footer className="footer">
-        <p>© 2025 Image Vectorizer</p>
+        <div className="footer-content">
+          <button className="reset-button" onClick={handleResetApp}>
+            清除缓存并刷新
+          </button>
+        </div>
       </footer>
     </div>
   )

@@ -1,7 +1,8 @@
 import { useState } from 'react'
+import { CSSTransition } from 'react-transition-group'
 import * as React from 'react'
 import { ImageItem, ProcessOptions } from '../types'
-import GlobalSettings from './GlobalSettings'
+import { BasicSettingsRow, PipelineControls } from './GlobalSettings'
 import ImageGallery from './ImageGallery'
 import './ImageList.css'
 
@@ -23,11 +24,10 @@ export default function ImageList({
   // 使用第一张图片的配置作为全局配置，如果没有图片则使用默认配置
   const [globalOptions, setGlobalOptions] = useState<ProcessOptions>(
     images[0]?.options || {
-      imageType: 'auto',
       upscaleFactor: 2,
-      denoiseLevel: 'medium',
+      denoiseLevel: 'none',
       outputFormat: 'both',
-      dpi: 300,
+      dpi: 'original',
       enableBasicEnhancement: true,
       enableAIUpscale: false,
       enableVectorize: false,
@@ -52,21 +52,46 @@ export default function ImageList({
       onUpdateOptions(image.id, options)
     })
   }
-  
+ 
+  const showAIWarning = globalOptions.enableAIUpscale
+  const showAIMemoryHint = globalOptions.enableAIUpscale && globalOptions.enableBasicEnhancement
+
+  const reminderElements: React.ReactNode[] = []
+  if (showAIWarning) {
+    reminderElements.push(
+      <CSSTransition classNames="reminder-bubble" timeout={240} key="ai-warning" appear>
+        <div className="pipeline-warning">
+          <span className="pipeline-warning__icon" aria-hidden="true">❗</span>
+          <span className="pipeline-warning__text">占用显存，耗时较久（需要显卡/浏览器性能）</span>
+        </div>
+      </CSSTransition>
+    )
+  }
+  if (showAIMemoryHint) {
+    reminderElements.push(
+      <CSSTransition classNames="reminder-bubble" timeout={240} key="ai-hint" appear>
+        <div className="pipeline-hint">
+          <span className="pipeline-hint__icon" aria-hidden="true">⛔</span>
+          <span className="pipeline-hint__text">若超出阈值会降级处理</span>
+        </div>
+      </CSSTransition>
+    )
+  }
+
+  const pipelineReminders = reminderElements.length > 0 ? reminderElements : null
+
   // 当新图片添加时，自动应用当前的全局设置
   React.useEffect(() => {
     // 为新添加的图片应用全局设置
     images.forEach(image => {
       // 检查图片的配置是否与全局配置一致，如果不一致则更新
       const needsUpdate = 
-        image.options.imageType !== globalOptions.imageType ||
         image.options.enableBasicEnhancement !== globalOptions.enableBasicEnhancement ||
         image.options.enableAIUpscale !== globalOptions.enableAIUpscale ||
         image.options.enableVectorize !== globalOptions.enableVectorize
       
       if (needsUpdate) {
         onUpdateOptions(image.id, {
-          imageType: globalOptions.imageType,
           upscaleFactor: globalOptions.upscaleFactor,
           denoiseLevel: globalOptions.denoiseLevel,
           outputFormat: globalOptions.outputFormat,
@@ -82,7 +107,19 @@ export default function ImageList({
   return (
     <div className="image-list-container">
       <div className="list-header">
-        <h2>已选择 {images.length} 张图片</h2>
+        <div className="header-settings-bar">
+          <BasicSettingsRow
+            options={globalOptions}
+            onUpdateOptions={handleGlobalOptionsUpdate}
+            variant="compact"
+          />
+          <PipelineControls
+            options={globalOptions}
+            onUpdateOptions={handleGlobalOptionsUpdate}
+            variant="compact"
+            showReminders={false}
+          />
+        </div>
         <div className="header-actions">
           <label className="add-more-button">
             <input 
@@ -92,27 +129,24 @@ export default function ImageList({
               onChange={handleFileInput}
               style={{ display: 'none' }}
             />
-            <span>+ 添加更多</span>
+            <span>➕ 添加更多</span>
           </label>
           <button className="start-button" onClick={onStartProcessing}>
-            开始处理
+            ▶️ 开始处理
           </button>
         </div>
       </div>
 
       <div className="content-layout">
-        {/* 全局设置区（左侧或上方） */}
-        <GlobalSettings 
-          options={globalOptions}
-          onUpdateOptions={handleGlobalOptionsUpdate}
-        />
-
-        {/* 图片列表区（右侧或下方） */}
-        <ImageGallery 
-          images={images}
-          onRemoveImage={onRemoveImage}
-        />
+        <div className="image-gallery-wrapper">
+          <ImageGallery 
+            images={images}
+            onRemoveImage={onRemoveImage}
+            reminderContent={pipelineReminders}
+          />
+        </div>
       </div>
+
     </div>
   )
 }

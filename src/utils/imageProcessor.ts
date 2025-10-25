@@ -1,4 +1,4 @@
-import { ImageItem, ProcessOptions } from '../types'
+import { ImageItem, ProcessOptions, ProcessResult } from '../types'
 import potrace from 'potrace'
 import { aiUpscale, base64ToBlobUrl } from './aiUpscale'
 
@@ -9,14 +9,13 @@ import { aiUpscale, base64ToBlobUrl } from './aiUpscale'
 export async function processImage(
   image: ImageItem,
   onProgress: (progress: number) => void
-): Promise<{ svgUrl?: string; pngUrl?: string; processingTime: number }> {
+): Promise<ProcessResult> {
   const startTime = Date.now()
   
   try {
     onProgress(10)
     
     console.log('=== 开始处理图片 ===')
-    console.log('图片类型:', image.options.imageType)
     console.log('处理流程:', {
       基础增强: image.options.enableBasicEnhancement,
       AI超分: image.options.enableAIUpscale,
@@ -39,12 +38,13 @@ async function processWithPipeline(
   image: ImageItem,
   onProgress: (progress: number) => void,
   startTime: number
-): Promise<{ svgUrl?: string; pngUrl?: string; processingTime: number }> {
+): Promise<ProcessResult> {
   let currentProgress = 20
   let svgUrl: string | undefined
   let pngUrl: string | undefined
   let currentFile: File = image.file
   let intermediateUrl: string | undefined
+  let pngSize: number | undefined
   
   // 统计启用的处理步骤数量
   const enabledSteps = [
@@ -58,8 +58,10 @@ async function processWithPipeline(
   // 步骤 1: 基础放大和去噪
   if (image.options.enableBasicEnhancement) {
     console.log('执行步骤 1: 基础放大和去噪')
-    intermediateUrl = await enhanceImage(currentFile, image.options)
-    pngUrl = intermediateUrl
+    const enhanceResult = await enhanceImage(currentFile, image.options)
+    intermediateUrl = enhanceResult.url
+    pngUrl = enhanceResult.url
+    pngSize = enhanceResult.size
     
     // 将结果转换为 File 供下一步使用
     try {
@@ -88,19 +90,20 @@ async function processWithPipeline(
       pngUrl = intermediateUrl
       
       // 转换为 File 供下一步使用
-      try {
-        const response = await fetch(intermediateUrl)
-        const blob = await response.blob()
-        currentFile = new File([blob], image.file.name, { type: 'image/png' })
-        console.log('✅ AI 超分结果已转换，供后续步骤使用')
-      } catch (error) {
-        console.warn('无法转换AI超分结果，后续步骤将使用原图', error)
-      }
+    try {
+      const response = await fetch(intermediateUrl)
+      const blob = await response.blob()
+      pngSize = blob.size
+      currentFile = new File([blob], image.file.name, { type: 'image/png' })
+      console.log('✅ AI 超分结果已转换，供后续步骤使用')
+    } catch (error) {
+      console.warn('无法转换AI超分结果，后续步骤将使用原图', error)
+    }
       
       currentProgress += progressPerStep
     } catch (error) {
-      console.warn('AI 超分失败，跳过此步骤', error)
-      currentProgress += progressPerStep
+      console.warn('AI 超分失败，终止此图片处理', error)
+      throw error
     }
     onProgress(currentProgress)
   }
@@ -109,7 +112,8 @@ async function processWithPipeline(
   if (image.options.enableVectorize) {
     console.log('执行步骤 3: 位图转矢量（基于当前结果）')
     try {
-      svgUrl = await vectorizeImage(currentFile, image.options)
+      const vectorizeResult = await vectorizeImage(currentFile, image.options)
+      svgUrl = vectorizeResult
       currentProgress += progressPerStep
     } catch (error) {
       console.warn('矢量化失败，跳过此步骤', error)
@@ -122,13 +126,17 @@ async function processWithPipeline(
   // 如果没有启用任何处理，使用基础增强（保持向后兼容）
   if (!enabledSteps) {
     console.log('未启用任何处理，使用基础增强作为默认')
-    pngUrl = await enhanceImage(image.file, image.options)
+    const enhanceResult = await enhanceImage(image.file, image.options)
+    pngUrl = enhanceResult.url
+    pngSize = enhanceResult.size
   }
   
   // 如果仍然没有 PNG 结果，返回原图
   if (!pngUrl) {
-    console.warn('所有处理都失败，返回原图')
-    pngUrl = URL.createObjectURL(image.file)
+    console.warn('所有处理都失败，无法生成放大结果')
+    const error = new Error('AI 超分失败，未生成新的放大图像')
+    ;(error as any).skipImage = true
+    throw error
   }
   
   // 🔧 修复：为最终的PNG统一添加DPI元数据
@@ -141,7 +149,9 @@ async function processWithPipeline(
       const blobWithDPI = await addDPIMetadata(blob, image.options.dpi)
       // 释放旧的URL，创建新的URL
       URL.revokeObjectURL(pngUrl)
-      pngUrl = URL.createObjectURL(blobWithDPI)
+      const updated = URL.createObjectURL(blobWithDPI)
+      pngUrl = updated
+      pngSize = blobWithDPI.size
       console.log('✅ DPI 元数据添加成功')
     } catch (error) {
       console.warn('添加 DPI 元数据失败，使用原始图片', error)
@@ -159,6 +169,7 @@ async function processWithPipeline(
   return {
     svgUrl,
     pngUrl,
+    pngSize,
     processingTime: Date.now() - startTime
   }
 }
@@ -166,7 +177,7 @@ async function processWithPipeline(
 /**
  * 图片增强处理（使用 Canvas 进行基础增强）
  */
-async function enhanceImage(file: File, options: ProcessOptions): Promise<string> {
+async function enhanceImage(file: File, options: ProcessOptions): Promise<{ url: string; size: number }> {
   return new Promise((resolve, reject) => {
     const img = new Image()
     const reader = new FileReader()
@@ -184,20 +195,9 @@ async function enhanceImage(file: File, options: ProcessOptions): Promise<string
         return
       }
       
-      // 根据 DPI 和放大倍数计算实际输出尺寸
-      let finalScale: number
-      let targetDPI: number
-      
-      if (options.dpi === 'original') {
-        // 保持原始 DPI，只应用放大倍数
-        finalScale = options.upscaleFactor
-        targetDPI = 0 // 0 表示不设置 DPI 元数据
-      } else {
-        // 假设原图是 72 DPI（屏幕标准），计算目标 DPI 的尺寸
-        const dpiScale = options.dpi / 72
-        finalScale = options.upscaleFactor * dpiScale
-        targetDPI = options.dpi
-      }
+      // 只按放大倍数计算尺寸，DPI 仅写入元数据
+      const finalScale = options.upscaleFactor
+      const targetDPI = options.dpi === 'original' ? 0 : Number(options.dpi)
       
       canvas.width = Math.round(img.width * finalScale)
       canvas.height = Math.round(img.height * finalScale)
@@ -220,16 +220,16 @@ async function enhanceImage(file: File, options: ProcessOptions): Promise<string
           try {
             // 如果选择保持原始 DPI，则不添加 DPI 元数据
             if (targetDPI === 0) {
-              resolve(URL.createObjectURL(blob))
+              resolve({ url: URL.createObjectURL(blob), size: blob.size })
             } else {
               // 为 PNG 添加 DPI 元数据
               const blobWithDPI = await addDPIMetadata(blob, targetDPI)
-              resolve(URL.createObjectURL(blobWithDPI))
+              resolve({ url: URL.createObjectURL(blobWithDPI), size: blobWithDPI.size })
             }
           } catch (error) {
             // 如果添加元数据失败，仍然返回原始 blob
             console.warn('添加 DPI 元数据失败，使用原始图片', error)
-            resolve(URL.createObjectURL(blob))
+            resolve({ url: URL.createObjectURL(blob), size: blob.size })
           }
         } else {
           reject(new Error('无法生成图片'))

@@ -149,27 +149,19 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
   return (
     <div className="results-view">
       <div className="results-header">
-        <div>
-          <h2>处理完成！</h2>
-          <p className="results-subtitle">
-            ✅ 成功: {successImages.length} 张 
-            {failedImages.length > 0 && ` | ❌ 失败: ${failedImages.length} 张`}
-            {checkedImages.size > 0 && ` | 已勾选: ${checkedImages.size} 张`}
-          </p>
-        </div>
-        <div className="header-actions">
+        <div className="results-header-actions">
           <button 
             className="select-all-button" 
             onClick={handleToggleAll}
           >
-            {checkedImages.size === successImages.length ? '取消全选' : '全选'}
+            {checkedImages.size === successImages.length ? '取消全选' : '全选成功图片'}
           </button>
           <button 
             className="download-png-button" 
             onClick={handleDownloadCheckedPNG}
             disabled={checkedImages.size === 0}
           >
-            📥 下载 PNG ({checkedImages.size})
+            📥 下载选中 PNG ({checkedImages.size})
           </button>
           {onBackToProcessing && (
             <button className="back-to-processing-button" onClick={onBackToProcessing}>
@@ -177,17 +169,17 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
             </button>
           )}
           <button className="download-all-button" onClick={handleDownloadAll}>
-            📦 批量下载全部
+            📦 下载全部结果
           </button>
           <button className="back-button" onClick={onBackToUpload}>
-            ← 返回上传
+            ← 返回上传页
           </button>
         </div>
       </div>
 
       {failedImages.length > 0 && (
         <div className="failed-section">
-          <h3>⚠️ 处理失败的图片</h3>
+          <h3>处理失败</h3>
           <div className="failed-list">
             {failedImages.map(img => (
               <div key={img.id} className="failed-item">
@@ -235,7 +227,18 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
             
             <div className="result-info">
               <h4>{image.file.name}</h4>
-              <p>处理时间: {((image.result?.processingTime || 0) / 1000).toFixed(1)}s</p>
+              <p>
+                处理时间: {((image.result?.processingTime || 0) / 1000).toFixed(1)}s
+                {(() => {
+                  const originalSizeMB = (image.file.size / 1024 / 1024)
+                  const resultSize = image.result?.pngSize
+                  if (resultSize != null) {
+                    const resultSizeMB = resultSize / 1024 / 1024
+                    return ` | 大小: ${originalSizeMB.toFixed(2)}MB → ${resultSizeMB.toFixed(2)}MB`
+                  }
+                  return ''
+                })()}
+              </p>
               
               <div className="download-buttons">
                 {image.result?.svgUrl && (
