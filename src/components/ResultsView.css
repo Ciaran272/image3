@@ -466,19 +466,66 @@
   box-shadow: var(--shadow-lg);
 }
 
+/* 移动端适配 */
 @media (max-width: 768px) {
   .results-header {
     align-items: stretch;
+    width: 100%;
+    padding: 1rem;
+    margin-left: 0;
+    margin-right: 0;
+    border-radius: 12px;
   }
   
   .results-header-actions {
     flex-direction: column;
     align-items: stretch;
     gap: 0.75rem;
+    width: 100%;
+  }
+  
+  .results-header-actions button {
+    width: 100%;
+    padding: 0.9rem 1.2rem;
+    font-size: 0.95rem;
+    text-align: center;
+    justify-content: center;
   }
   
   .results-grid {
     grid-template-columns: 1fr;
+    gap: 1.2rem;
+  }
+  
+  .result-card {
+    margin: 0 auto;
+    max-width: 100%;
+  }
+  
+  .result-preview {
+    height: 200px;
+  }
+  
+  .failed-section {
+    padding: 1.25rem;
+    margin-bottom: 1.5rem;
+    border-radius: 16px;
+  }
+  
+  .failed-section h3 {
+    font-size: 1.1rem;
+  }
+  
+  .failed-item {
+    grid-template-columns: auto 1fr;
+    gap: 0.75rem;
+    padding: 0.85rem;
+  }
+  
+  .failed-reason {
+    grid-column: 1 / -1;
+    justify-self: start;
+    margin-top: 0.35rem;
   }
   
   .compare-view {
@@ -493,6 +540,34 @@
   
   .modal-content {
     padding: 1.5rem;
+    border-radius: 16px;
+  }
+  
+  .modal-content h3 {
+    font-size: 1.25rem;
+  }
+  
+  .modal-overlay {
+    padding: 1rem;
+  }
+  
+  .modal-actions {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+  
+  .modal-download-btn {
+    width: 100%;
+    padding: 0.9rem 1.5rem;
+  }
+  
+  .download-buttons {
+    gap: 0.6rem;
+  }
+  
+  .mini-download-btn {
+    padding: 0.65rem;
+    font-size: 0.9rem;
   }
 }
 
