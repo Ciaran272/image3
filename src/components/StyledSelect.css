@@ -192,3 +192,43 @@
   }
 }
 
+@media (max-width: 768px) {
+  .styled-select {
+    width: 100%;
+  }
+  
+  .styled-select-trigger {
+    padding: 0.65rem 0.9rem;
+    padding-right: 2.5rem;
+    font-size: 0.9rem;
+    min-height: 44px; /* Touch-friendly minimum height */
+  }
+  
+  .styled-select--compact .styled-select-trigger {
+    padding: 0.55rem 0.75rem;
+    padding-right: 2rem;
+    font-size: 0.88rem;
+    min-height: 44px;
+  }
+  
+  .styled-select--compact .styled-select-value {
+    font-size: 0.88rem;
+  }
+  
+  .styled-select-dropdown {
+    max-height: 200px;
+    font-size: 0.9rem;
+  }
+  
+  .styled-select-option {
+    padding: 0.8rem 1rem;
+    min-height: 44px;
+  }
+  
+  .styled-select--compact .styled-select-option {
+    padding: 0.65rem 0.85rem;
+    font-size: 0.84rem;
+    min-height: 44px;
+  }
+}
+

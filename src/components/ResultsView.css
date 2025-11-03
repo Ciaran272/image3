@@ -571,3 +571,441 @@
   }
 }
 
+/* ========== JPEG 转换功能样式 ========== */
+
+/* JPEG 转换按钮 */
+.convert-jpeg-button {
+  background: linear-gradient(135deg, #ffd166 0%, #ffb347 100%) !important;
+  color: #2d3748 !important;
+  border: 1px solid rgba(255, 159, 28, 0.3) !important;
+  box-shadow: 0 8px 20px rgba(255, 177, 71, 0.3) !important;
+}
+
+.convert-jpeg-button:hover:not(:disabled) {
+  transform: translateY(-2px) !important;
+  box-shadow: 0 12px 28px rgba(255, 177, 71, 0.4) !important;
+  background: linear-gradient(135deg, #ffda7a 0%, #ffbd5c 100%) !important;
+}
+
+.convert-jpeg-button:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* JPEG 模态框覆盖层 */
+.jpeg-modal-overlay {
+  position: fixed;
+  inset: 0;
+  background: rgba(0, 0, 0, 0.65);
+  backdrop-filter: blur(6px);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1001;
+  animation: fadeIn 0.25s ease;
+  padding: 1rem;
+}
+
+/* JPEG 模态框主体 */
+.jpeg-modal {
+  background: white;
+  border-radius: 24px;
+  padding: 2.5rem;
+  max-width: 650px;
+  width: 100%;
+  max-height: 85vh;
+  overflow-y: auto;
+  box-shadow: 0 20px 80px rgba(0, 0, 0, 0.35);
+  animation: slideUp 0.35s cubic-bezier(0.34, 1.56, 0.64, 1);
+  position: relative;
+}
+
+.jpeg-modal h3 {
+  margin: 0 0 1.5rem 0;
+  font-size: 1.75rem;
+  color: #2d3748;
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.jpeg-modal .modal-close {
+  position: absolute;
+  top: 1.5rem;
+  right: 1.5rem;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: rgba(45, 55, 72, 0.08);
+  color: #4a5568;
+  font-size: 1.75rem;
+  line-height: 1;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: all 0.2s ease;
+  border: none;
+  cursor: pointer;
+  padding: 0;
+}
+
+.jpeg-modal .modal-close:hover {
+  background: rgba(45, 55, 72, 0.15);
+  transform: scale(1.1);
+}
+
+/* 模态框信息文本 */
+.modal-info {
+  color: #718096;
+  margin-bottom: 1.8rem;
+  font-size: 1rem;
+  line-height: 1.6;
+}
+
+.modal-info strong {
+  color: #f6ad55;
+  font-weight: 700;
+  font-size: 1.1rem;
+}
+
+/* 质量控制区域 */
+.quality-control {
+  margin: 2rem 0;
+  padding: 1.8rem;
+  background: linear-gradient(135deg, #fff9f0 0%, #ffefd5 100%);
+  border-radius: 16px;
+  border: 1px solid rgba(255, 177, 71, 0.2);
+}
+
+.quality-control label {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 1.2rem;
+  font-weight: 600;
+  color: #2d3748;
+  font-size: 1.05rem;
+}
+
+.quality-value {
+  font-size: 1.5rem;
+  color: #ff8c00;
+  font-weight: 700;
+  min-width: 65px;
+  text-align: right;
+}
+
+/* 质量滑动条 */
+.quality-slider {
+  width: 100%;
+  height: 10px;
+  border-radius: 5px;
+  background: linear-gradient(90deg, 
+    #fc8181 0%, 
+    #f6ad55 33%, 
+    #68d391 66%, 
+    #48bb78 100%
+  );
+  outline: none;
+  -webkit-appearance: none;
+  cursor: pointer;
+  box-shadow: inset 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+.quality-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 3px solid #ff8c00;
+}
+
+.quality-slider::-webkit-slider-thumb:hover {
+  transform: scale(1.25);
+  box-shadow: 0 6px 16px rgba(255, 140, 0, 0.4);
+}
+
+.quality-slider::-webkit-slider-thumb:active {
+  transform: scale(1.15);
+}
+
+.quality-slider::-moz-range-thumb {
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: white;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.25);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+  border: 3px solid #ff8c00;
+}
+
+.quality-slider::-moz-range-thumb:hover {
+  transform: scale(1.25);
+}
+
+/* 质量刻度标记 */
+.quality-marks {
+  display: flex;
+  justify-content: space-between;
+  margin-top: 0.75rem;
+  font-size: 0.8rem;
+  color: #a0aec0;
+  font-weight: 500;
+}
+
+/* 文件大小预览区域 */
+.preview-sizes {
+  margin: 2rem 0;
+}
+
+.preview-sizes h4 {
+  margin: 0 0 1.2rem 0;
+  font-size: 1.1rem;
+  color: #4a5568;
+  font-weight: 600;
+}
+
+/* 文件大小列表 */
+.size-list {
+  max-height: 240px;
+  overflow-y: auto;
+  margin-bottom: 1.5rem;
+  padding-right: 0.5rem;
+}
+
+/* 自定义滚动条 */
+.size-list::-webkit-scrollbar {
+  width: 8px;
+}
+
+.size-list::-webkit-scrollbar-track {
+  background: #f1f5f9;
+  border-radius: 4px;
+}
+
+.size-list::-webkit-scrollbar-thumb {
+  background: #cbd5e0;
+  border-radius: 4px;
+}
+
+.size-list::-webkit-scrollbar-thumb:hover {
+  background: #a0aec0;
+}
+
+/* 单个文件大小项 */
+.size-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  padding: 1rem;
+  background: #f7fafc;
+  border-radius: 10px;
+  margin-bottom: 0.65rem;
+  font-size: 0.95rem;
+  transition: all 0.2s ease;
+  border: 1px solid transparent;
+}
+
+.size-item:hover {
+  background: #edf2f7;
+  border-color: rgba(255, 177, 71, 0.3);
+  transform: translateX(4px);
+}
+
+.size-item:last-child {
+  margin-bottom: 0;
+}
+
+.filename {
+  color: #2d3748;
+  font-weight: 600;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  max-width: 45%;
+  flex-shrink: 1;
+}
+
+.size-change {
+  color: #718096;
+  white-space: nowrap;
+  font-size: 0.9rem;
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+}
+
+.compression {
+  color: #48bb78;
+  font-weight: 700;
+  font-size: 0.85rem;
+  padding: 0.15rem 0.5rem;
+  background: rgba(72, 187, 120, 0.15);
+  border-radius: 6px;
+}
+
+/* 总大小显示 */
+.total-size {
+  padding: 1.25rem;
+  background: linear-gradient(135deg, #e6fffa 0%, #c6f6d5 100%);
+  border-radius: 12px;
+  text-align: center;
+  font-weight: 700;
+  font-size: 1.15rem;
+  color: #2d3748;
+  border: 2px solid rgba(72, 187, 120, 0.3);
+  box-shadow: 0 4px 12px rgba(72, 187, 120, 0.15);
+}
+
+.total-size strong {
+  color: #2f855a;
+}
+
+.total-size .compression {
+  margin-left: 0.5rem;
+  font-size: 1rem;
+  padding: 0.25rem 0.75rem;
+}
+
+/* 模态框按钮区域 */
+.jpeg-modal .modal-actions {
+  display: flex;
+  justify-content: center;
+  margin-top: 2.5rem;
+}
+
+.confirm-button {
+  padding: 1rem 3rem;
+  border-radius: 14px;
+  font-weight: 600;
+  font-size: 1.05rem;
+  transition: all 0.3s ease;
+  border: none;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffd166 0%, #ffb347 100%);
+  color: #2d3748;
+  border: 1px solid rgba(255, 159, 28, 0.3);
+  box-shadow: 0 6px 18px rgba(255, 177, 71, 0.35);
+}
+
+.confirm-button::after {
+  content: '';
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 0;
+  height: 0;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  transform: translate(-50%, -50%);
+  transition: width 0.5s, height 0.5s;
+}
+
+.confirm-button:active::after {
+  width: 300px;
+  height: 300px;
+}
+
+.confirm-button:hover:not(:disabled) {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px rgba(255, 177, 71, 0.45);
+  background: linear-gradient(135deg, #ffda7a 0%, #ffbd5c 100%);
+}
+
+.confirm-button:disabled {
+  opacity: 0.55;
+  cursor: not-allowed;
+  transform: none;
+}
+
+/* 动画 */
+@keyframes slideUp {
+  from {
+    opacity: 0;
+    transform: translateY(40px) scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0) scale(1);
+  }
+}
+
+/* 移动端适配 - JPEG 模态框 */
+@media (max-width: 768px) {
+  .jpeg-modal {
+    padding: 2rem 1.5rem;
+    border-radius: 20px;
+    max-height: 90vh;
+  }
+  
+  .jpeg-modal h3 {
+    font-size: 1.4rem;
+    margin-bottom: 1rem;
+    padding-right: 2rem;
+  }
+  
+  .jpeg-modal .modal-close {
+    width: 32px;
+    height: 32px;
+    top: 1rem;
+    right: 1rem;
+    font-size: 1.5rem;
+  }
+  
+  .quality-control {
+    padding: 1.5rem 1.2rem;
+  }
+  
+  .quality-control label {
+    font-size: 1rem;
+  }
+  
+  .quality-value {
+    font-size: 1.3rem;
+  }
+  
+  .size-list {
+    max-height: 180px;
+  }
+  
+  .size-item {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.5rem;
+    padding: 0.85rem;
+  }
+  
+  .filename {
+    max-width: 100%;
+    font-size: 0.9rem;
+  }
+  
+  .size-change {
+    width: 100%;
+    justify-content: space-between;
+    font-size: 0.85rem;
+  }
+  
+  .total-size {
+    font-size: 1rem;
+    padding: 1rem;
+  }
+  
+  .jpeg-modal .modal-actions {
+    justify-content: center;
+  }
+  
+  .confirm-button {
+    width: 100%;
+    padding: 0.9rem 1.5rem;
+    font-size: 1rem;
+  }
+}
+

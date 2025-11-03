@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import { ImageItem, FailedImage } from '../types'
 import JSZip from 'jszip'
 import { saveAs } from 'file-saver'
@@ -14,6 +14,12 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
   const [selectedImage, setSelectedImage] = useState<ImageItem | null>(null)
   const [compareMode, setCompareMode] = useState(false)
   const [checkedImages, setCheckedImages] = useState<Set<string>>(new Set())
+  
+  // JPEG 转换相关状态
+  const [jpegModalOpen, setJpegModalOpen] = useState(false)
+  const [jpegQuality, setJpegQuality] = useState(90)
+  const [jpegPreviews, setJpegPreviews] = useState<Map<string, number>>(new Map())
+  const [isConverting, setIsConverting] = useState(false)
 
   const successImages = images.filter(img => img.status === 'completed')
   const failedImages: FailedImage[] = images
@@ -146,6 +152,347 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
     }
   }
 
+  // 从 PNG 中读取 DPI
+  const readPNGDPI = async (pngUrl: string): Promise<number | null> => {
+    try {
+      const response = await fetch(pngUrl)
+      const arrayBuffer = await response.arrayBuffer()
+      const view = new Uint8Array(arrayBuffer)
+      
+      // 验证 PNG 签名
+      if (view[0] !== 137 || view[1] !== 80 || view[2] !== 78 || view[3] !== 71) {
+        return null
+      }
+      
+      // 查找 pHYs chunk
+      let offset = 8  // 跳过 PNG 签名
+      
+      while (offset < view.length - 12) {
+        const chunkLength = (view[offset] << 24) | (view[offset + 1] << 16) | (view[offset + 2] << 8) | view[offset + 3]
+        const chunkType = String.fromCharCode(view[offset + 4], view[offset + 5], view[offset + 6], view[offset + 7])
+        
+        if (chunkType === 'pHYs') {
+          // 读取像素每米
+          const pixelsPerMeterX = (view[offset + 8] << 24) | (view[offset + 9] << 16) | (view[offset + 10] << 8) | view[offset + 11]
+          const unit = view[offset + 16]
+          
+          if (unit === 1) {  // 单位是米
+            // 转换为 DPI：pixelsPerMeter / 39.3701
+            const dpi = Math.round(pixelsPerMeterX / 39.3701)
+            return dpi
+          }
+        }
+        
+        // IEND 表示文件结束
+        if (chunkType === 'IEND') {
+          break
+        }
+        
+        // 移动到下一个 chunk
+        offset += 12 + chunkLength
+      }
+      
+      return null
+    } catch (error) {
+      console.warn('读取 PNG DPI 失败:', error)
+      return null
+    }
+  }
+
+  // PNG 转 JPEG 核心函数
+  const convertPNGToJPEG = async (
+    pngUrl: string,
+    quality: number,
+    dpi?: number  // DPI 参数（可选）
+  ): Promise<{ blob: Blob; size: number }> => {
+    return new Promise((resolve, reject) => {
+      const img = new Image()
+      img.crossOrigin = 'anonymous'
+      
+      img.onload = () => {
+        const canvas = document.createElement('canvas')
+        const ctx = canvas.getContext('2d')
+        
+        if (!ctx) {
+          reject(new Error('无法创建 Canvas 上下文'))
+          return
+        }
+        
+        canvas.width = img.width
+        canvas.height = img.height
+        
+        // 填充白色背景（JPEG 不支持透明）
+        ctx.fillStyle = '#FFFFFF'
+        ctx.fillRect(0, 0, canvas.width, canvas.height)
+        ctx.drawImage(img, 0, 0)
+        
+        // 导出为 JPEG
+        canvas.toBlob(async (blob) => {
+          if (blob) {
+            try {
+              // 如果指定了 DPI，则添加 DPI 元数据
+              if (dpi && dpi > 0) {
+                const blobWithDPI = await addJPEGDPIMetadata(blob, dpi)
+                resolve({ blob: blobWithDPI, size: blobWithDPI.size })
+              } else {
+                resolve({ blob, size: blob.size })
+              }
+            } catch (error) {
+              console.warn('添加 JPEG DPI 元数据失败，使用原始图片', error)
+              resolve({ blob, size: blob.size })
+            }
+          } else {
+            reject(new Error('转换失败'))
+          }
+        }, 'image/jpeg', quality / 100)
+      }
+      
+      img.onerror = () => reject(new Error('图片加载失败'))
+      img.src = pngUrl
+    })
+  }
+
+  // 为 JPEG 添加 DPI 元数据（JFIF APP0 标记）
+  const addJPEGDPIMetadata = async (blob: Blob, dpi: number): Promise<Blob> => {
+    const arrayBuffer = await blob.arrayBuffer()
+    const view = new Uint8Array(arrayBuffer)
+    
+    // JPEG 文件以 SOI (Start of Image) 标记开始：0xFF 0xD8
+    if (view[0] !== 0xFF || view[1] !== 0xD8) {
+      throw new Error('不是有效的 JPEG 文件')
+    }
+    
+    // 查找 APP0 (JFIF) 标记的位置
+    let offset = 2  // 跳过 SOI
+    let hasJFIF = false
+    let jfifOffset = -1
+    
+    // 查找现有的 JFIF APP0 标记
+    while (offset < view.length - 1) {
+      if (view[offset] === 0xFF) {
+        const marker = view[offset + 1]
+        
+        if (marker === 0xE0) {  // APP0 标记
+          // 检查是否为 JFIF（验证标识符，不需要段长度）
+          const identifier = String.fromCharCode(
+            view[offset + 4], view[offset + 5], view[offset + 6], 
+            view[offset + 7], view[offset + 8]
+          )
+          
+          if (identifier === 'JFIF\0') {
+            hasJFIF = true
+            jfifOffset = offset
+            break
+          }
+        }
+        
+        // 跳过此段
+        if (marker >= 0xD0 && marker <= 0xD9) {
+          // 独立标记，无长度字段
+          offset += 2
+        } else if (marker !== 0x00 && marker !== 0xFF) {
+          const segmentLength = (view[offset + 2] << 8) | view[offset + 3]
+          offset += 2 + segmentLength
+        } else {
+          offset += 2
+        }
+      } else {
+        offset++
+      }
+    }
+    
+    // 创建新的 JFIF APP0 段（包含 DPI 信息）
+    const createJFIFSegment = (dpi: number): Uint8Array => {
+      const segment = new Uint8Array(18)
+      const dv = new DataView(segment.buffer)
+      
+      // APP0 标记
+      dv.setUint8(0, 0xFF)
+      dv.setUint8(1, 0xE0)
+      
+      // 段长度（16 字节，不包括标记本身）
+      dv.setUint16(2, 16, false)
+      
+      // JFIF 标识符
+      segment[4] = 0x4A  // 'J'
+      segment[5] = 0x46  // 'F'
+      segment[6] = 0x49  // 'I'
+      segment[7] = 0x46  // 'F'
+      segment[8] = 0x00  // 终止符
+      
+      // JFIF 版本 (1.01)
+      dv.setUint8(9, 1)
+      dv.setUint8(10, 1)
+      
+      // 密度单位：1 = DPI (dots per inch)
+      dv.setUint8(11, 1)
+      
+      // X 密度（DPI）
+      dv.setUint16(12, dpi, false)
+      
+      // Y 密度（DPI）
+      dv.setUint16(14, dpi, false)
+      
+      // 缩略图宽度和高度（0 = 无缩略图）
+      dv.setUint8(16, 0)
+      dv.setUint8(17, 0)
+      
+      return segment
+    }
+    
+    const jfifSegment = createJFIFSegment(dpi)
+    
+    if (hasJFIF && jfifOffset >= 0) {
+      // 替换现有的 JFIF 段
+      const oldSegmentLength = (view[jfifOffset + 2] << 8) | view[jfifOffset + 3]
+      const result = new Uint8Array(
+        view.length - oldSegmentLength - 2 + jfifSegment.length
+      )
+      
+      result.set(view.slice(0, jfifOffset), 0)
+      result.set(jfifSegment, jfifOffset)
+      result.set(
+        view.slice(jfifOffset + 2 + oldSegmentLength),
+        jfifOffset + jfifSegment.length
+      )
+      
+      return new Blob([result], { type: 'image/jpeg' })
+    } else {
+      // 在 SOI 后插入新的 JFIF 段
+      const result = new Uint8Array(view.length + jfifSegment.length)
+      result.set(view.slice(0, 2), 0)  // SOI
+      result.set(jfifSegment, 2)
+      result.set(view.slice(2), 2 + jfifSegment.length)
+      
+      return new Blob([result], { type: 'image/jpeg' })
+    }
+  }
+
+  // 实时更新 JPEG 预览大小
+  const updateJpegPreviews = async (quality: number) => {
+    const checkedSuccessImages = successImages.filter(img => 
+      checkedImages.has(img.id) && img.result?.pngUrl
+    )
+    
+    const newPreviews = new Map<string, number>()
+    
+    for (const image of checkedSuccessImages) {
+      try {
+        // 获取用户设置的 DPI
+        let dpi: number | undefined
+        
+        if (image.options.dpi === 'original') {
+          // 选择"不变"时，尝试从 PNG 中读取 DPI
+          const pngDpi = await readPNGDPI(image.result!.pngUrl!)
+          dpi = pngDpi || undefined
+          console.log(`从 PNG 读取到 DPI: ${pngDpi || '无'}`)
+        } else {
+          dpi = Number(image.options.dpi)
+        }
+        
+        const { size } = await convertPNGToJPEG(image.result!.pngUrl!, quality, dpi)
+        newPreviews.set(image.id, size)
+      } catch (error) {
+        console.error(`预览失败: ${image.file.name}`, error)
+      }
+    }
+    
+    setJpegPreviews(newPreviews)
+  }
+
+  // 处理质量滑动条变化（带防抖）
+  useEffect(() => {
+    if (!jpegModalOpen) return
+    
+    const timer = setTimeout(() => {
+      updateJpegPreviews(jpegQuality)
+    }, 300) // 300ms 防抖
+    
+    return () => clearTimeout(timer)
+  }, [jpegQuality, jpegModalOpen, checkedImages])
+
+  // 执行批量转换并下载
+  const handleConvertAndDownloadJPEG = async () => {
+    const checkedSuccessImages = successImages.filter(img => 
+      checkedImages.has(img.id) && img.result?.pngUrl
+    )
+    
+    if (checkedSuccessImages.length === 0) {
+      alert('请先勾选要转换的图片')
+      return
+    }
+    
+    setIsConverting(true)
+    
+    try {
+      console.log(`开始转换并下载 ${checkedSuccessImages.length} 张 JPEG 图片...`)
+      
+      if (checkedSuccessImages.length === 1) {
+        // 单张图片：直接下载
+        const image = checkedSuccessImages[0]
+        
+        // 获取 DPI
+        let dpi: number | undefined
+        if (image.options.dpi === 'original') {
+          // 选择"不变"时，尝试从 PNG 中读取 DPI
+          const pngDpi = await readPNGDPI(image.result!.pngUrl!)
+          dpi = pngDpi || undefined
+          console.log(`转换时从 PNG 读取到 DPI: ${pngDpi || '无'}`)
+        } else {
+          dpi = Number(image.options.dpi)
+        }
+        
+        const { blob } = await convertPNGToJPEG(
+          image.result!.pngUrl!, 
+          jpegQuality,
+          dpi
+        )
+        
+        const filename = image.file.name.replace(/\.[^/.]+$/, '') + '.jpg'
+        saveAs(blob, filename)
+        
+        alert('转换完成！')
+      } else {
+        // 多张图片：打包为 ZIP
+        const zip = new JSZip()
+        
+        for (const image of checkedSuccessImages) {
+          // 获取 DPI
+          let dpi: number | undefined
+          if (image.options.dpi === 'original') {
+            // 选择"不变"时，尝试从 PNG 中读取 DPI
+            const pngDpi = await readPNGDPI(image.result!.pngUrl!)
+            dpi = pngDpi || undefined
+            console.log(`转换 ${image.file.name} 时从 PNG 读取到 DPI: ${pngDpi || '无'}`)
+          } else {
+            dpi = Number(image.options.dpi)
+          }
+          
+          const { blob } = await convertPNGToJPEG(
+            image.result!.pngUrl!, 
+            jpegQuality,
+            dpi
+          )
+          
+          const filename = image.file.name.replace(/\.[^/.]+$/, '') + '.jpg'
+          zip.file(filename, blob)
+        }
+        
+        const content = await zip.generateAsync({ type: 'blob' })
+        saveAs(content, `jpeg_images_q${jpegQuality}_${Date.now()}.zip`)
+        
+        alert(`成功转换并打包 ${checkedSuccessImages.length} 张 JPEG 图片！`)
+      }
+      
+      setJpegModalOpen(false)
+    } catch (error) {
+      console.error('转换失败:', error)
+      alert('转换失败，请重试')
+    } finally {
+      setIsConverting(false)
+    }
+  }
+
   return (
     <div className="results-view">
       <div className="results-header">
@@ -162,6 +509,20 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
             disabled={checkedImages.size === 0}
           >
             📥 下载选中 PNG ({checkedImages.size})
+          </button>
+          <button 
+            className="convert-jpeg-button" 
+            onClick={() => {
+              if (checkedImages.size === 0) {
+                alert('请先勾选要转换的图片')
+                return
+              }
+              setJpegModalOpen(true)
+              updateJpegPreviews(jpegQuality)
+            }}
+            disabled={checkedImages.size === 0}
+          >
+            🎨 转换为 JPEG ({checkedImages.size})
           </button>
           {onBackToProcessing && (
             <button className="back-to-processing-button" onClick={onBackToProcessing}>
@@ -334,6 +695,117 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
                   下载 PNG
                 </button>
               )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* JPEG 转换模态框 */}
+      {jpegModalOpen && (
+        <div className="jpeg-modal-overlay" onClick={() => setJpegModalOpen(false)}>
+          <div className="jpeg-modal" onClick={(e) => e.stopPropagation()}>
+            <button className="modal-close" onClick={() => setJpegModalOpen(false)}>
+              ×
+            </button>
+            
+            <h3>🎨 JPEG 转换设置</h3>
+            
+            <p className="modal-info">
+              已选中 <strong>{checkedImages.size}</strong> 张图片
+            </p>
+            
+            <div className="quality-control">
+              <label>
+                <span>质量设置:</span>
+                <span className="quality-value">{jpegQuality}%</span>
+              </label>
+              <input 
+                type="range" 
+                min="50" 
+                max="100" 
+                step="5"
+                value={jpegQuality}
+                onChange={(e) => setJpegQuality(Number(e.target.value))}
+                className="quality-slider"
+              />
+              <div className="quality-marks">
+                <span>50% 高压缩</span>
+                <span>75% 标准</span>
+                <span>100% 最佳</span>
+              </div>
+            </div>
+            
+            <div className="preview-sizes">
+              <h4>预计文件大小:</h4>
+              <div className="size-list">
+                {successImages
+                  .filter(img => checkedImages.has(img.id))
+                  .map(image => {
+                    const originalSize = image.result?.pngSize || image.file.size
+                    const jpegSize = jpegPreviews.get(image.id)
+                    const compression = jpegSize 
+                      ? Math.round((1 - jpegSize / originalSize) * 100)
+                      : 0
+                    
+                    return (
+                      <div key={image.id} className="size-item">
+                        <span className="filename">{image.file.name}</span>
+                        <span className="size-change">
+                          {(originalSize / 1024 / 1024).toFixed(2)}MB 
+                          {' → '}
+                          {jpegSize 
+                            ? `${(jpegSize / 1024 / 1024).toFixed(2)}MB`
+                            : '计算中...'
+                          }
+                          {jpegSize && (
+                            <span className="compression"> (↓{compression}%)</span>
+                          )}
+                        </span>
+                      </div>
+                    )
+                  })}
+              </div>
+              
+              <div className="total-size">
+                <strong>总大小:</strong>
+                {(() => {
+                  const totalOriginal = successImages
+                    .filter(img => checkedImages.has(img.id))
+                    .reduce((sum, img) => sum + (img.result?.pngSize || img.file.size), 0)
+                  
+                  const totalJpeg = Array.from(jpegPreviews.values())
+                    .reduce((sum, size) => sum + size, 0)
+                  
+                  const totalCompression = totalJpeg > 0
+                    ? Math.round((1 - totalJpeg / totalOriginal) * 100)
+                    : 0
+                  
+                  return (
+                    <>
+                      {' '}
+                      {(totalOriginal / 1024 / 1024).toFixed(1)}MB 
+                      {' → '}
+                      {jpegPreviews.size > 0 
+                        ? `${(totalJpeg / 1024 / 1024).toFixed(1)}MB`
+                        : '计算中...'
+                      }
+                      {jpegPreviews.size > 0 && (
+                        <span className="compression"> (节省 {totalCompression}%)</span>
+                      )}
+                    </>
+                  )
+                })()}
+              </div>
+            </div>
+            
+            <div className="modal-actions">
+              <button 
+                className="confirm-button" 
+                onClick={handleConvertAndDownloadJPEG}
+                disabled={isConverting || jpegPreviews.size === 0}
+              >
+                {isConverting ? '转换中...' : '开始转换并下载'}
+              </button>
             </div>
           </div>
         </div>

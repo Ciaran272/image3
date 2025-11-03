@@ -175,12 +175,84 @@ async function processWithPipeline(
 }
 
 /**
+ * 从 PNG/JPEG 文件中读取 DPI
+ */
+async function readImageDPI(file: File): Promise<number | null> {
+  try {
+    const arrayBuffer = await file.arrayBuffer()
+    const view = new Uint8Array(arrayBuffer)
+    
+    // 检查是否为 PNG
+    if (view[0] === 137 && view[1] === 80 && view[2] === 78 && view[3] === 71) {
+      // PNG 文件
+      let offset = 8  // 跳过 PNG 签名
+      
+      while (offset < view.length - 12) {
+        const chunkLength = (view[offset] << 24) | (view[offset + 1] << 16) | (view[offset + 2] << 8) | view[offset + 3]
+        const chunkType = String.fromCharCode(view[offset + 4], view[offset + 5], view[offset + 6], view[offset + 7])
+        
+        if (chunkType === 'pHYs') {
+          const pixelsPerMeterX = (view[offset + 8] << 24) | (view[offset + 9] << 16) | (view[offset + 10] << 8) | view[offset + 11]
+          const unit = view[offset + 16]
+          
+          if (unit === 1) {  // 单位是米
+            const dpi = Math.round(pixelsPerMeterX / 39.3701)
+            console.log(`从 PNG 读取到 DPI: ${dpi}`)
+            return dpi
+          }
+        }
+        
+        if (chunkType === 'IEND') break
+        offset += 12 + chunkLength
+      }
+    }
+    // 检查是否为 JPEG
+    else if (view[0] === 0xFF && view[1] === 0xD8) {
+      // JPEG 文件
+      let offset = 2
+      
+      while (offset < view.length - 1) {
+        if (view[offset] === 0xFF && view[offset + 1] === 0xE0) {  // APP0 marker
+          const identifier = String.fromCharCode(
+            view[offset + 4], view[offset + 5], view[offset + 6], 
+            view[offset + 7], view[offset + 8]
+          )
+          
+          if (identifier === 'JFIF\0') {
+            const unit = view[offset + 11]
+            if (unit === 1) {  // DPI
+              const dpiX = (view[offset + 12] << 8) | view[offset + 13]
+              console.log(`从 JPEG 读取到 DPI: ${dpiX}`)
+              return dpiX
+            }
+          }
+          break
+        }
+        offset++
+      }
+    }
+    
+    return null
+  } catch (error) {
+    console.warn('读取图片 DPI 失败:', error)
+    return null
+  }
+}
+
+/**
  * 图片增强处理（使用 Canvas 进行基础增强）
  */
 async function enhanceImage(file: File, options: ProcessOptions): Promise<{ url: string; size: number }> {
-  return new Promise((resolve, reject) => {
+  return new Promise(async (resolve, reject) => {
     const img = new Image()
     const reader = new FileReader()
+    
+    // 如果选择保持原始 DPI，先尝试读取原始文件的 DPI
+    let originalDPI: number | null = null
+    if (options.dpi === 'original') {
+      originalDPI = await readImageDPI(file)
+      console.log(`原始文件 DPI: ${originalDPI || '未找到'}`)
+    }
     
     reader.onload = (e) => {
       img.src = e.target?.result as string
@@ -197,7 +269,10 @@ async function enhanceImage(file: File, options: ProcessOptions): Promise<{ url:
       
       // 只按放大倍数计算尺寸，DPI 仅写入元数据
       const finalScale = options.upscaleFactor
-      const targetDPI = options.dpi === 'original' ? 0 : Number(options.dpi)
+      // 如果选择保持原始且找到了原始 DPI，使用它；否则根据设置
+      const targetDPI = options.dpi === 'original' 
+        ? (originalDPI || 0)  // 使用读取到的原始 DPI，如果没有就不写入
+        : Number(options.dpi)
       
       canvas.width = Math.round(img.width * finalScale)
       canvas.height = Math.round(img.height * finalScale)
