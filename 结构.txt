@@ -1,60 +1,54 @@
-├── index.html                              # 生产环境入口HTML
-├── favicon.png                             # 图标
-├── manifest.json                           # PWA配置文件
-├── vite.svg                                # Vite默认Logo
+├── assets/                                    # 构建产物资源文件夹
+│   ├── aiUpscale-BFKU51xm.js                 # AI 超分辨率模块
+│   ├── index-CmRNheCl.css                     # 主样式文件
+│   ├── index-D_HRkR_8.js                      # 主业务逻辑代码
+│   ├── vendor-ai-Cjay71on.js                  # AI 相关依赖包（TensorFlow.js + Upscaler）
+│   ├── vendor-other-B_-1jgMS.js               # 其他第三方库
+│   ├── vendor-react-lLDS_VkD.js               # React 核心库
+│   └── vendor-utils-DXtK3xK1.js               # 图片处理工具（potrace, jszip, file-saver）
 │
-├── package.json                            # 项目依赖和脚本（dependencies + devDependencies）
-├── package-lock.json                       # 依赖版本锁定文件
+├── src/                                       # 源码
+│   │
+│   ├── components/                            # React 组件目录
+│   │   ├── GlobalSettings.css                 # 全局设置组件
+│   │   ├── GlobalSettings.tsx                 # 全局设置组件（放大倍数、去噪、DPI、输出格式）
+│   │   ├── Header.css                         # 页面头部
+│   │   ├── Header.tsx                         # 页面头部组件
+│   │   ├── ImageGallery.css                   # 图片画廊
+│   │   ├── ImageGallery.tsx                   # 图片画廊组件
+│   │   ├── ImageList.css                      # 图片列表
+│   │   ├── ImageList.tsx                      # 图片列表组件（上传后的管理界面）
+│   │   ├── ProcessingPanel.css                # 处理面板
+│   │   ├── ProcessingPanel.tsx                # 处理面板组件（显示处理进度和状态）
+│   │   ├── ResultsView.css                    # 结果查看
+│   │   ├── ResultsView.tsx                    # 结果查看组件（处理完成后的预览和下载）
+│   │   ├── StyledSelect.css                   # 自定义下拉选择框
+│   │   ├── StyledSelect.tsx                   # 自定义下拉选择框组件
+│   │   ├── UploadZone.css                     # 上传区域
+│   │   └── UploadZone.tsx                     # 上传区域组件（拖拽或点击上传）
+│   │
+│   ├── types/                                 # TypeScript 类型声明目录
+│   │   ├── potrace.d.ts                       # potrace 
+│   │   └── upscaler-models.d.ts               # upscaler 
+│   │
+│   ├── utils/                                 # 工具函数目录
+│   │   ├── aiUpscale.ts                       # AI 超分辨率核心逻辑（TensorFlow.js + Upscaler）
+│   │   ├── globalReset.ts                     # 全局重置工具
+│   │   ├── imageProcessor.ts                  # 图片处理核心逻辑（管线处理：增强→AI→矢量化）
+│   │   └── processingQueue.ts                 # 批量处理队列
+│   │
+│   ├── App.css                                # 主应用
+│   ├── App.tsx                                # 主应用组件
+│   ├── index.css                              # 全局基础
+│   ├── main.tsx                               # 应用入口
+│   └── types.ts                               # 全局类型定义（ImageItem, ProcessOptions, ProcessResult）
 │
-├── vite.config.ts                          # Vite构建配置（base路径、打包优化、CORS头设置）
-├── tsconfig.json                           # TypeScript编译配置
-├── tsconfig.node.json                      # TypeScript编译配置
-│
-├── 📁 assets/                              # 构建产物静态资源目录
-│   ├── index-B-MauwpB.css                  # 所有样式合并打包
-│   ├── index-CSwepiA0.js                   # 主应用代码（React组件+业务逻辑，压缩混淆）
-│   └── vendor-Cf0Y5DJ5.js                  # 第三方库打包（React、TensorFlow.js、Upscaler等）
-│
-└── 📁 src/                                 # 源代码
-    │
-    ├── main.tsx                            # 应用入口文件（ReactDOM.createRoot + 渲染App组件）
-    ├── App.tsx                             # 根组件
-    ├── App.css                             # 根组件样式
-    ├── index.css                           # 全局样式（CSS变量定义、通用样式、禁止文本选中）
-    ├── types.ts                            # 核心类型定义（ImageItem、ProcessOptions、ProcessResult、ProcessingStats）
-    │
-    ├── 📁 components/                      # UI组件目录
-    │   ├── Header.tsx                      # 顶部导航栏组件
-    │   ├── Header.css                      # 导航栏样式
-    │   │
-    │   ├── UploadZone.tsx                  # 拖拽上传区域
-    │   ├── UploadZone.css                  # 上传区样式
-    │   │
-    │   ├── ImageList.tsx                   # 图片列表管理页面
-    │   ├── ImageList.css                   # 列表页样式（header布局、按钮排列、响应式设计）
-    │   │
-    │   ├── ImageGallery.tsx                # 图片缩略图网格组件
-    │   ├── ImageGallery.css                # 缩略图样式
-    │   │
-    │   ├── GlobalSettings.tsx              # 全局设置面板
-    │   ├── GlobalSettings.css              # 设置面板样式
-    │   │
-    │   ├── ProcessingPanel.tsx             # 处理进度面板
-    │   ├── ProcessingPanel.css             # 进度面板样式
-    │   │
-    │   ├── ResultsView.tsx                 # 处理结果页
-    │   ├── ResultsView.css                 # 结果页样式
-    │   │
-    │   ├── StyledSelect.tsx                # 自定义下拉选择器组件（替代原生select，支持紧凑模式）
-    │   └── StyledSelect.css                # 下拉选择器样式（紧凑模式、悬停效果、选项列表动画）
-    │
-    ├── 📁 utils/                           # 工具函数目录
-    │   ├── imageProcessor.ts               # 核心图像处理（基础放大、Canvas渲染、DPI写入、流程编排）
-    │   ├── aiUpscale.ts                    # AI超分辨率封装（TensorFlow.js初始化、Upscaler.js模型加载、WebGL/CPU切换）
-    │   ├── processingQueue.ts              # 任务队列管理（并发控制、错误处理、进度回调、状态更新）
-    │   └── globalReset.ts                  # 全局重置逻辑（清除localStorage/sessionStorage、页面刷新）
-    │
-    └── 📁 types/                           # TypeScript类型声明目录
-        ├── potrace.d.ts                    # Potrace库类型声明（位图转矢量化算法接口）
-        └── upscaler-models.d.ts            # Upscaler.js模型类型声明（ESRGAN 2x/3x/4x模型接口）
 
+├── index.html                                 # HTML 入口文件
+├── manifest.json                              # PWA 配置文件
+├── package-lock.json                          # npm 依赖锁定文件
+├── package.json                               # npm 项目配置和依赖列表
+├── tsconfig.json                              # TypeScript 配置文件
+├── tsconfig.node.json                         # Node 环境 TypeScript 配置
+├── vite.config.ts                             # Vite 构建工具配置（含 Bundle 优化）
+├── vite.svg                                   # Vite 图标
