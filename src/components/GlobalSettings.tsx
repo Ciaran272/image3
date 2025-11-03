@@ -29,12 +29,6 @@ const DPI_OPTIONS: StyledSelectOption<ProcessOptions['dpi']>[] = [
   { value: 600, label: '600DPI' }
 ]
 
-interface GlobalSettingsProps {
-  options: ProcessOptions
-  onUpdateOptions: (options: Partial<ProcessOptions>) => void
-  showBasicSettings?: boolean
-}
-
 interface BasicSettingsRowProps {
   options: ProcessOptions
   onUpdateOptions: (options: Partial<ProcessOptions>) => void
@@ -180,20 +174,3 @@ export function PipelineControls({ options, onUpdateOptions, variant = 'default'
     </div>
   )
 }
-
-export default function GlobalSettings({ options, onUpdateOptions, showBasicSettings = true }: GlobalSettingsProps) {
-  return (
-    <div className="global-settings">
-      <div className="settings-section settings-section--compact">
-        <PipelineControls options={options} onUpdateOptions={onUpdateOptions} />
-      </div>
-
-      {showBasicSettings && (
-        <div className="settings-section settings-section--compact">
-          <BasicSettingsRow options={options} onUpdateOptions={onUpdateOptions} />
-        </div>
-      )}
-    </div>
-  )
-}
-

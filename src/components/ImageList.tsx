@@ -82,14 +82,17 @@ export default function ImageList({
 
   // 当新图片添加时，自动应用当前的全局设置
   React.useEffect(() => {
-    // 为新添加的图片应用全局设置
     images.forEach(image => {
-      // 检查图片的配置是否与全局配置一致，如果不一致则更新
-      const needsUpdate = 
+      const needsUpdate =
+        image.options.upscaleFactor !== globalOptions.upscaleFactor ||
+        image.options.denoiseLevel !== globalOptions.denoiseLevel ||
+        image.options.outputFormat !== globalOptions.outputFormat ||
+        image.options.dpi !== globalOptions.dpi ||
         image.options.enableBasicEnhancement !== globalOptions.enableBasicEnhancement ||
         image.options.enableAIUpscale !== globalOptions.enableAIUpscale ||
-        image.options.enableVectorize !== globalOptions.enableVectorize
-      
+        image.options.enableVectorize !== globalOptions.enableVectorize ||
+        image.options.vectorizePrecision !== globalOptions.vectorizePrecision
+
       if (needsUpdate) {
         onUpdateOptions(image.id, {
           upscaleFactor: globalOptions.upscaleFactor,
@@ -98,11 +101,12 @@ export default function ImageList({
           dpi: globalOptions.dpi,
           enableBasicEnhancement: globalOptions.enableBasicEnhancement,
           enableAIUpscale: globalOptions.enableAIUpscale,
-          enableVectorize: globalOptions.enableVectorize
+          enableVectorize: globalOptions.enableVectorize,
+          vectorizePrecision: globalOptions.vectorizePrecision
         })
       }
     })
-  }, [images.length]) // 当图片数量变化时触发
+  }, [images, globalOptions, onUpdateOptions])
 
   return (
     <div className="image-list-container">

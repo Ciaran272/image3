@@ -29,6 +29,10 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
       filename: img.file.name,
       reason: img.error || '未知错误'
     }))
+  const successImagesWithPNG = successImages.filter(img => !!img.result?.pngUrl)
+  const hasAnyPNGResult = successImagesWithPNG.length > 0
+  const checkedImagesWithPNG = successImagesWithPNG.filter(img => checkedImages.has(img.id))
+  const checkedPNGCount = checkedImagesWithPNG.length
 
   const handleDownloadSingle = async (image: ImageItem, format: 'svg' | 'png') => {
     if (!image.result) return
@@ -92,10 +96,10 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
 
   // 下载勾选的 PNG 图片（使用 File System Access API）
   const handleDownloadCheckedPNG = async () => {
-    const checkedSuccessImages = successImages.filter(img => checkedImages.has(img.id))
+    const checkedSuccessImages = successImagesWithPNG.filter(img => checkedImages.has(img.id))
     
     if (checkedSuccessImages.length === 0) {
-      alert('请先勾选要下载的图片')
+      alert('选中的图片中没有可用的 PNG 结果')
       return
     }
 
@@ -107,12 +111,8 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
           mode: 'readwrite'
         })
         
-        console.log(`开始下载 ${checkedSuccessImages.length} 张 PNG 图片到自定义文件夹...`)
-        
         for (const image of checkedSuccessImages) {
-          if (!image.result?.pngUrl) continue
-          
-          const response = await fetch(image.result.pngUrl)
+          const response = await fetch(image.result!.pngUrl!)
           const blob = await response.blob()
           const filename = image.file.name.replace(/\.[^/.]+$/, '') + '_processed.png'
           
@@ -126,12 +126,8 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
         alert(`成功下载 ${checkedSuccessImages.length} 张 PNG 图片！`)
       } else {
         // 不支持 API，使用传统方式（逐个下载）
-        console.log('浏览器不支持文件夹选择，使用逐个下载方式')
-        
         for (const image of checkedSuccessImages) {
-          if (!image.result?.pngUrl) continue
-          
-          const response = await fetch(image.result.pngUrl)
+          const response = await fetch(image.result!.pngUrl!)
           const blob = await response.blob()
           const filename = image.file.name.replace(/\.[^/.]+$/, '') + '_processed.png'
           saveAs(blob, filename)
@@ -143,9 +139,7 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
         alert(`已触发 ${checkedSuccessImages.length} 个下载，请在浏览器下载栏查看`)
       }
     } catch (error) {
-      if ((error as Error).name === 'AbortError') {
-        console.log('用户取消了文件夹选择')
-      } else {
+      if ((error as Error).name !== 'AbortError') {
         console.error('下载失败:', error)
         alert('下载失败，请重试')
       }
@@ -385,7 +379,6 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
           // 选择"不变"时，尝试从 PNG 中读取 DPI
           const pngDpi = await readPNGDPI(image.result!.pngUrl!)
           dpi = pngDpi || undefined
-          console.log(`从 PNG 读取到 DPI: ${pngDpi || '无'}`)
         } else {
           dpi = Number(image.options.dpi)
         }
@@ -425,8 +418,6 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
     setIsConverting(true)
     
     try {
-      console.log(`开始转换并下载 ${checkedSuccessImages.length} 张 JPEG 图片...`)
-      
       if (checkedSuccessImages.length === 1) {
         // 单张图片：直接下载
         const image = checkedSuccessImages[0]
@@ -437,7 +428,6 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
           // 选择"不变"时，尝试从 PNG 中读取 DPI
           const pngDpi = await readPNGDPI(image.result!.pngUrl!)
           dpi = pngDpi || undefined
-          console.log(`转换时从 PNG 读取到 DPI: ${pngDpi || '无'}`)
         } else {
           dpi = Number(image.options.dpi)
         }
@@ -463,7 +453,6 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
             // 选择"不变"时，尝试从 PNG 中读取 DPI
             const pngDpi = await readPNGDPI(image.result!.pngUrl!)
             dpi = pngDpi || undefined
-            console.log(`转换 ${image.file.name} 时从 PNG 读取到 DPI: ${pngDpi || '无'}`)
           } else {
             dpi = Number(image.options.dpi)
           }
@@ -503,27 +492,31 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
           >
             {checkedImages.size === successImages.length ? '取消全选' : '全选成功图片'}
           </button>
-          <button 
-            className="download-png-button" 
-            onClick={handleDownloadCheckedPNG}
-            disabled={checkedImages.size === 0}
-          >
-            📥 下载选中 PNG ({checkedImages.size})
-          </button>
-          <button 
-            className="convert-jpeg-button" 
-            onClick={() => {
-              if (checkedImages.size === 0) {
-                alert('请先勾选要转换的图片')
-                return
-              }
-              setJpegModalOpen(true)
-              updateJpegPreviews(jpegQuality)
-            }}
-            disabled={checkedImages.size === 0}
-          >
-            🎨 转换为 JPEG ({checkedImages.size})
-          </button>
+          {hasAnyPNGResult && (
+            <button 
+              className="download-png-button" 
+              onClick={handleDownloadCheckedPNG}
+              disabled={checkedPNGCount === 0}
+            >
+              📥 下载选中 PNG ({checkedPNGCount})
+            </button>
+          )}
+          {hasAnyPNGResult && (
+            <button 
+              className="convert-jpeg-button" 
+              onClick={() => {
+                if (checkedPNGCount === 0) {
+                  alert('请先勾选包含 PNG 结果的图片')
+                  return
+                }
+                setJpegModalOpen(true)
+                updateJpegPreviews(jpegQuality)
+              }}
+              disabled={checkedPNGCount === 0}
+            >
+              🎨 转换为 JPEG ({checkedPNGCount})
+            </button>
+          )}
           {onBackToProcessing && (
             <button className="back-to-processing-button" onClick={onBackToProcessing}>
               🔍 查看处理详情

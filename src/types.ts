@@ -1,5 +1,4 @@
-// 图片类型（场景化）
-export type ProcessStatus = 'pending' | 'processing' | 'completed' | 'failed' | 'skipped';
+export type ProcessStatus = 'pending' | 'processing' | 'completed' | 'failed';
 
 export type OutputFormat = 'svg' | 'png' | 'both';
 

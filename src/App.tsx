@@ -6,7 +6,6 @@ import ProcessingPanel from './components/ProcessingPanel'
 import ResultsView from './components/ResultsView'
 import { ImageItem, ProcessingStats, ProcessOptions } from './types'
 import { ProcessingQueue, QueueCallbacks } from './utils/processingQueue'
-import { resetAIBackend } from './utils/aiUpscale'
 import './App.css'
 
 type AppView = 'upload' | 'processing' | 'results';
@@ -51,8 +50,9 @@ function App() {
     setView('upload')
 
     try {
+      // 懒加载 AI 后端重置函数
+      const { resetAIBackend } = await import('./utils/aiUpscale')
       await resetAIBackend()
-      console.log('AI 后端已重置')
     } catch (err) {
       console.warn('重置 AI 后端失败', err)
     }
@@ -170,15 +170,12 @@ function App() {
       },
       
       onQueueComplete: () => {
-        console.log('队列处理完成，1秒后跳转到结果页面')
         setTimeout(() => {
-          console.log('正在跳转到结果页面...')
           setView('results')
         }, 1000)
       },
 
       onQueueAborted: () => {
-        console.log('队列被用户中止')
         setTimeout(() => {
           setView('upload')
         }, 300)

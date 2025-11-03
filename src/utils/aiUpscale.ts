@@ -7,7 +7,6 @@ import '@tensorflow/tfjs-backend-webgl'
 import * as tf from '@tensorflow/tfjs'
 import Upscaler from 'upscaler'
 import type { ModelDefinition, UpscalerOptions } from 'upscaler'
-import { handleGlobalReset } from './globalReset'
 import ModelX2 from '@upscalerjs/esrgan-medium/2x'
 import ModelX3 from '@upscalerjs/esrgan-medium/3x'
 import ModelX4 from '@upscalerjs/esrgan-medium/4x'
@@ -146,7 +145,6 @@ async function performUpscale(
       if (typeof window !== 'undefined') {
         const shouldContinue = window.confirm('⚠️ 浏览器显卡资源不足，是否切换到 CPU 模式继续处理？（速度会明显变慢）')
         if (!shouldContinue) {
-          handleGlobalReset()
           const abortError = new Error('用户取消处理：CPU 模式未启用')
           ;(abortError as any).userAborted = true
           throw abortError

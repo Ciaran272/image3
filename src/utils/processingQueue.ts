@@ -16,7 +16,6 @@ export interface QueueCallbacks {
 export class ProcessingQueue {
   private queue: ImageItem[] = []
   private isProcessing = false
-  private currentIndex = 0
   private shouldStop = false
   
   constructor(private callbacks: QueueCallbacks) {}
@@ -26,7 +25,6 @@ export class ProcessingQueue {
    */
   addImages(images: ImageItem[]) {
     this.queue = [...images]
-    this.currentIndex = 0
   }
   
   /**
@@ -39,13 +37,11 @@ export class ProcessingQueue {
     }
     
     this.isProcessing = true
-    this.currentIndex = 0
     this.shouldStop = false
     
     // 串行处理每张图片
     for (let i = 0; i < this.queue.length; i++) {
       if (this.shouldStop) break
-      this.currentIndex = i
       const image = this.queue[i]
       
       try {
@@ -78,9 +74,6 @@ export class ProcessingQueue {
     }
     
     this.isProcessing = false
-    console.log('=== 所有图片处理完成 ===')
-    console.log(`成功: ${this.queue.filter(img => img.status === 'completed').length}`)
-    console.log(`失败: ${this.queue.filter(img => img.status === 'failed').length}`)
     if (this.shouldStop) {
       this.callbacks.onQueueAborted?.()
     } else {
@@ -94,16 +87,6 @@ export class ProcessingQueue {
   stop() {
     this.shouldStop = true
     this.isProcessing = false
-  }
-  
-  /**
-   * 获取当前进度
-   */
-  getProgress() {
-    return {
-      current: this.currentIndex,
-      total: this.queue.length
-    }
   }
 }
 

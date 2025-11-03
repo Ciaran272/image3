@@ -1,6 +1,11 @@
 import { ImageItem, ProcessOptions, ProcessResult } from '../types'
 import potrace from 'potrace'
-import { aiUpscale, base64ToBlobUrl } from './aiUpscale'
+
+// 懒加载 AI 模块，减少首屏 bundle 体积
+const loadAIModule = async () => {
+  const module = await import('./aiUpscale')
+  return module
+}
 
 /**
  * 主图片处理函数
@@ -45,18 +50,27 @@ async function processWithPipeline(
   let currentFile: File = image.file
   let intermediateUrl: string | undefined
   let pngSize: number | undefined
+  const wantsPNG = image.options.outputFormat === 'png' || image.options.outputFormat === 'both'
+  const wantsSVG = image.options.outputFormat === 'svg' || image.options.outputFormat === 'both'
+  const runBasicEnhancement = image.options.enableBasicEnhancement
+  const runAIUpscale = image.options.enableAIUpscale
+  const runVectorize = image.options.enableVectorize && wantsSVG
+
+  if (wantsSVG && !runVectorize) {
+    console.warn('已选择 SVG 输出但未启用矢量化，将不会生成 SVG 结果')
+  }
   
   // 统计启用的处理步骤数量
   const enabledSteps = [
-    image.options.enableBasicEnhancement,
-    image.options.enableAIUpscale,
-    image.options.enableVectorize
+    runBasicEnhancement,
+    runAIUpscale,
+    runVectorize
   ].filter(Boolean).length
   
   const progressPerStep = enabledSteps > 0 ? 70 / enabledSteps : 0
   
   // 步骤 1: 基础放大和去噪
-  if (image.options.enableBasicEnhancement) {
+  if (runBasicEnhancement) {
     console.log('执行步骤 1: 基础放大和去噪')
     const enhanceResult = await enhanceImage(currentFile, image.options)
     intermediateUrl = enhanceResult.url
@@ -77,9 +91,12 @@ async function processWithPipeline(
   }
   
   // 步骤 2: AI 超分辨率（使用前一步的结果）
-  if (image.options.enableAIUpscale) {
+  if (runAIUpscale) {
     console.log('执行步骤 2: AI 超分辨率（基于当前结果）')
     try {
+      // 动态加载 AI 模块
+      const { aiUpscale, base64ToBlobUrl } = await loadAIModule()
+      
       // 使用前一步的结果（currentFile），实现协同处理
       const aiResult = await aiUpscale(
         currentFile,  // 使用当前最新的处理结果
@@ -109,7 +126,7 @@ async function processWithPipeline(
   }
   
   // 步骤 3: 位图转矢量（基于当前最佳结果）
-  if (image.options.enableVectorize) {
+  if (runVectorize) {
     console.log('执行步骤 3: 位图转矢量（基于当前结果）')
     try {
       const vectorizeResult = await vectorizeImage(currentFile, image.options)
@@ -123,16 +140,16 @@ async function processWithPipeline(
   }
   
   
-  // 如果没有启用任何处理，使用基础增强（保持向后兼容）
-  if (!enabledSteps) {
+  // 如果没有启用任何处理，且需要 PNG 输出，使用基础增强（保持向后兼容）
+  if (!enabledSteps && wantsPNG) {
     console.log('未启用任何处理，使用基础增强作为默认')
     const enhanceResult = await enhanceImage(image.file, image.options)
     pngUrl = enhanceResult.url
     pngSize = enhanceResult.size
   }
   
-  // 如果仍然没有 PNG 结果，返回原图
-  if (!pngUrl) {
+  // 如果仍然没有 PNG 结果，且用户需要 PNG，则抛出错误
+  if (!pngUrl && wantsPNG) {
     console.warn('所有处理都失败，无法生成放大结果')
     const error = new Error('AI 超分失败，未生成新的放大图像')
     ;(error as any).skipImage = true
@@ -141,7 +158,7 @@ async function processWithPipeline(
   
   // 🔧 修复：为最终的PNG统一添加DPI元数据
   // 如果用户设置了DPI且不是'original'，为最终PNG添加DPI信息
-  if (pngUrl && image.options.dpi !== 'original' && typeof image.options.dpi === 'number') {
+  if (pngUrl && wantsPNG && image.options.dpi !== 'original' && typeof image.options.dpi === 'number') {
     try {
       console.log(`正在为最终PNG添加 ${image.options.dpi} DPI 元数据...`)
       const response = await fetch(pngUrl)
@@ -165,6 +182,31 @@ async function processWithPipeline(
     hasPNG: !!pngUrl,
     processingTime: Date.now() - startTime
   })
+
+  if (!wantsSVG && svgUrl) {
+    try {
+      URL.revokeObjectURL(svgUrl)
+    } catch (error) {
+      console.warn('释放 SVG URL 失败', error)
+    }
+    svgUrl = undefined
+  }
+
+  if (!wantsPNG && pngUrl) {
+    try {
+      URL.revokeObjectURL(pngUrl)
+    } catch (error) {
+      console.warn('释放 PNG URL 失败', error)
+    }
+    pngUrl = undefined
+    pngSize = undefined
+  }
+
+  if (!svgUrl && !pngUrl) {
+    const noOutputError = new Error('未生成可用的输出结果，请检查设置')
+    ;(noOutputError as any).skipImage = true
+    throw noOutputError
+  }
   
   return {
     svgUrl,
