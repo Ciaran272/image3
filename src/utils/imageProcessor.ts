@@ -94,6 +94,18 @@ async function processWithPipeline(
   if (runAIUpscale) {
     console.log('执行步骤 2: AI 超分辨率（基于当前结果）')
     try {
+      // 🔧 释放前一步的中间 URL（如果存在且与 pngUrl 不同）
+      if (intermediateUrl && intermediateUrl !== pngUrl) {
+        try {
+          URL.revokeObjectURL(intermediateUrl)
+        } catch (e) {
+          console.warn('释放中间 URL 失败', e)
+        }
+      }
+      
+      // 保存旧的 pngUrl，以便后续释放
+      const oldPngUrl = pngUrl
+      
       // 动态加载 AI 模块
       const { aiUpscale, base64ToBlobUrl } = await loadAIModule()
       
@@ -105,6 +117,15 @@ async function processWithPipeline(
       )
       intermediateUrl = aiResult.startsWith('data:') ? base64ToBlobUrl(aiResult) : aiResult
       pngUrl = intermediateUrl
+      
+      // 🔧 释放旧的 pngUrl（如果存在且与新的 intermediateUrl 不同）
+      if (oldPngUrl && oldPngUrl !== intermediateUrl) {
+        try {
+          URL.revokeObjectURL(oldPngUrl)
+        } catch (e) {
+          console.warn('释放旧 PNG URL 失败', e)
+        }
+      }
       
       // 转换为 File 供下一步使用
     try {

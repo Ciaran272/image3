@@ -21,8 +21,15 @@ function App() {
   })
   
   const queueRef = useRef<ProcessingQueue | null>(null)
+  const timeoutRef = useRef<NodeJS.Timeout | null>(null)
 
   const handleResetApp = useCallback(async () => {
+    // 🔧 清除所有待执行的 timeout，避免竞态条件
+    if (timeoutRef.current) {
+      clearTimeout(timeoutRef.current)
+      timeoutRef.current = null
+    }
+    
     // 停止队列
     if (queueRef.current) {
       try {
@@ -170,15 +177,15 @@ function App() {
       },
       
       onQueueComplete: () => {
-        setTimeout(() => {
-          setView('results')
-        }, 1000)
+        // 🔧 改进：立即切换视图，避免竞态条件导致状态不一致
+        // 原来的延迟是为了让最后一张图片的进度动画完成
+        // 但实际上状态更新会触发 React 重新渲染，动画会自然完成
+        setView('results')
       },
 
       onQueueAborted: () => {
-        setTimeout(() => {
-          setView('upload')
-        }, 300)
+        // 🔧 改进：立即切换视图，避免竞态条件
+        setView('upload')
       }
     }
     
