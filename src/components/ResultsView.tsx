@@ -701,7 +701,7 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
               ×
             </button>
             
-            <h3>🎨 JPEG 转换设置</h3>
+            <h3>🎨 JPEG 转换</h3>
             
             <p className="modal-info">
               已选中 <strong>{checkedImages.size}</strong> 张图片
@@ -709,7 +709,7 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
             
             <div className="quality-control">
               <label>
-                <span>质量设置:</span>
+                <span>质量:</span>
                 <span className="quality-value">{jpegQuality}%</span>
               </label>
               <input 
@@ -722,9 +722,9 @@ export default function ResultsView({ images, onBackToUpload, onBackToProcessing
                 className="quality-slider"
               />
               <div className="quality-marks">
-                <span>50% 高压缩</span>
-                <span>75% 标准</span>
-                <span>100% 最佳</span>
+                <span>50%</span>
+                <span>75%</span>
+                <span>100%</span>
               </div>
             </div>
             
